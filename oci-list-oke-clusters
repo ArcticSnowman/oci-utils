@@ -3,6 +3,17 @@
 COMPARTMENT=""
 CMPID=""
 
+# Usage function
+function usage() {
+  echo "Usage: $0 [--compartment <compartment-name>] [--debug]"
+  echo ""
+  echo "Options:"
+  echo "  --compartment   Name of the compartment (optional)"
+  echo "  --debug         Enable debug mode (optional)"
+  exit 1
+}
+
+
 # Get the direcory of the current script
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

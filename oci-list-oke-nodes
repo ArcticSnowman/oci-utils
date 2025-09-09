@@ -4,6 +4,21 @@ set -euo pipefail
 COMPARTMENT=""
 CMPID=""
 CLUSTER=""
+CLUSTERID=""
+NODEPOOL=""
+NODEPOOLID=""
+ACTIVE=false
+
+function usage() {
+  echo "Usage: $0 --compartment <compartment-name> --cluster <cluster-name> [--nodepool <nodepool-name>] [--debug]"
+  echo ""
+  echo "Options:"
+  echo "  --compartment   Name of the compartment (required)"
+  echo "  --cluster       Name of the cluster (required)"
+  echo "  --nodepool      Name of the node pool (optional)"
+  echo "  --debug         Enable debug mode (optional)"
+  exit 1
+}
 
 # Get the direcory of the current script
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -22,6 +37,19 @@ while [[ $# -gt 0 ]]; do
       shift # past argument
       shift # past value
       ;;
+    --nodepool)
+      NODEPOOL="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    --active)
+      ACTIVE=true
+      shift # past argument
+      ;;
+    --debug)
+      set -x
+      shift # past argument
+      ;;
   esac
 done
 
@@ -29,25 +57,52 @@ done
 CMPID=$(get_compartment_id "$COMPARTMENT")
 if [ -z "$CMPID" ]; then
   echo "Compartment $COMPARTMENT not found"
-  exit 1
+  usage
 fi
 
-OCICMD="oci ce node-pool list --compartment-id $CMPID"
+CLUSTERID=$(get_cluster_id "$CMPID" "$CLUSTER")
+if [ -z "$CLUSTERID" ]; then
+  echo "Cluster $CLUSTER not found in compartment $COMPARTMENT"
+  usage
+fi
 
-if [ ! -z "$CLUSTER" ]; then
-  CLUSTERID=$(get_cluster_id "$CMPID" "$CLUSTER")
+OCICMD="oci ce node-pool list --compartment-id $CMPID --cluster-id $CLUSTERID"
+
+
+if [ ! -z "$NODEPOOL" ]; then
   if [ -z "$CLUSTERID" ]; then
-    echo "Cluster $CLUSTER not found in compartment $COMPARTMENT"
-    exit 1
+    echo "Cluster name must be specified when specifying a node pool name"
+    usage
   fi
-  OCICMD+=" --cluster-id $CLUSTERID"
+  NODEPOOLID=$(get_nodepool_id "$CMPID" "$CLUSTERID" "$NODEPOOL")
+  if [ -z "$NODEPOOLID" ]; then
+    echo "Node Pool $NODEPOOL not found in cluster $CLUSTER"
+    usage
+  fi
+  
+  list_nodes "$NODEPOOLID"
+
 fi
 
-for nodepool in $($OCICMD | jq -r '.data[] | .id'); do
-  json=$(oci ce node-pool get --node-pool-id "$nodepool")
-  cluster=$(echo "$json" | jq -r '.data."cluster-id"')
-  cluster_name=$(oci ce cluster get --cluster-id "$cluster" | jq -r '.data.name')
-  if [ "$json" != "" ]; then
-    echo "$json" | jq --arg clustername $cluster_name -r '.data | [$clustername, .name, .id] | @tsv' | column -t
+function list_nodes() {
+  local nodepool_id="$1"
+  local nodepool_name="$2"
+  local jqfilter='.[]'
+  if $ACTIVE; then
+    jqfilter+=' | select(."lifecycle-state"=="ACTIVE") '
   fi
-done
+  jqfilter+=' | [$nodepoolname, ."node-id", ."lifecycle-state", ."private-ip"] | @tsv'
+  
+  oci ce node-pool get --node-pool-id "$nodepool_id" --query 'data.nodes' --raw-output | jq --arg nodepoolname "$nodepool_name" -r "$jqfilter" | column -t
+}
+
+if [ ! -z "$NODEPOOLID" ]; then
+  list_nodes "$NODEPOOLID" "$NODEPOOL"
+  exit 0
+
+else
+  for nodepool in $($OCICMD | jq -r '.data[] | .name'); do
+    NODEPOOLID=$(get_nodepool_id "$CMPID" "$CLUSTERID" "$nodepool")
+    list_nodes "$NODEPOOLID" "$nodepool"
+  done
+fi

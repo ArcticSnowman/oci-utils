@@ -11,6 +11,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 . "$SCRIPT_DIR/oci-functions.sh"
 
+function usage() {
+  echo "Usage: $0 --compartment <compartment-name> [--cluster <cluster-name>] [--debug]"
+  echo ""
+  echo "Options:"
+  echo "  --compartment   Name of the compartment (required)"
+  echo "  --cluster       Name of the cluster (optional)"
+  echo "  --debug         Enable debug mode (optional)"
+  exit 1
+}
+
+
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -33,12 +44,12 @@ done
 
 if [ -z "$COMPARTMENT" ]; then
   echo "Compartment Name is required"
-  exit 1
+  usage
 fi
 CMPID=$(get_compartment_id "$COMPARTMENT")
 if [ -z "$CMPID" ]; then
   echo "Compartment $COMPARTMENT not found"
-  exit 1
+  usage
 fi
 
 OCICMD="oci ce node-pool list --compartment-id $CMPID"
