@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+for cmp in $(oci iam compartment list --compartment-id-in-subtree true --all | jq -r '.data[] | .id'); do
+  json=$(oci network subnet list --compartment-id "$cmp")
+  cmp_name=$(oci iam compartment get --compartment-id "$cmp" | jq -r '.data.name')
+  if [ "$json" != "" ]; then
+    echo "$json" | jq --arg cmpname $cmp_name -r '.data[] | [$cmpname, ."display-name", .id] | @tsv' | column -t
+  fi
+done

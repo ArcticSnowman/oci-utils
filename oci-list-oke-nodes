@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+COMPARTMENT=""
+CMPID=""
+CLUSTER=""
+
+# Get the direcory of the current script
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+. "$SCRIPT_DIR/oci-functions.sh"
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --compartment)
+      COMPARTMENT="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    --cluster)
+      CLUSTER="$2"
+      shift # past argument
+      shift # past value
+      ;;
+  esac
+done
+
+
+CMPID=$(get_compartment_id "$COMPARTMENT")
+if [ -z "$CMPID" ]; then
+  echo "Compartment $COMPARTMENT not found"
+  exit 1
+fi
+
+OCICMD="oci ce node-pool list --compartment-id $CMPID"
+
+if [ ! -z "$CLUSTER" ]; then
+  CLUSTERID=$(get_cluster_id "$CMPID" "$CLUSTER")
+  if [ -z "$CLUSTERID" ]; then
+    echo "Cluster $CLUSTER not found in compartment $COMPARTMENT"
+    exit 1
+  fi
+  OCICMD+=" --cluster-id $CLUSTERID"
+fi
+
+for nodepool in $($OCICMD | jq -r '.data[] | .id'); do
+  json=$(oci ce node-pool get --node-pool-id "$nodepool")
+  cluster=$(echo "$json" | jq -r '.data."cluster-id"')
+  cluster_name=$(oci ce cluster get --cluster-id "$cluster" | jq -r '.data.name')
+  if [ "$json" != "" ]; then
+    echo "$json" | jq --arg clustername $cluster_name -r '.data | [$clustername, .name, .id] | @tsv' | column -t
+  fi
+done

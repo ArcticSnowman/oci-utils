@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+# This script lists all OCI compartments in a given tenancy. Parse JSON output to list table of name and id
+
+oci iam compartment list --compartment-id-in-subtree true --all | jq -r '.data[] | [.name, .id] | @tsv' | column -t

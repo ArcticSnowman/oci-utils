@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+
+COMPARTMENT=""
+CMPID=""
+
+# Get the direcory of the current script
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+. "$SCRIPT_DIR/oci-functions.sh"
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --compartment)
+      COMPARTMENT="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    --debug)
+      set -x
+      shift # past argument
+      ;;
+  esac
+done
+
+if [ ! -z "$COMPARTMENT" ]; then
+  CMPID=$(get_compartment_id "$COMPARTMENT")
+  if [ -z "$CMPID" ]; then
+    echo "Compartment $COMPARTMENT not found"
+    exit 1
+  fi
+fi
+
+
+for cmp in $(oci iam compartment list --compartment-id-in-subtree true --all | jq -r '.data[] | .id'); do
+  json=$(oci ce cluster list --compartment-id "$cmp")
+  cmp_name=$(oci iam compartment get --compartment-id "$cmp" | jq -r '.data.name')
+  if [ "$json" != "" ]; then
+    echo "$json" | jq --arg cmpname $cmp_name -r '.data[] | [$cmpname, .name, ."lifecycle-state", .id] | @tsv' | column -t
+  fi
+done
