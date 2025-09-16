@@ -17,6 +17,8 @@ function usage() {
   echo "  --cluster       Name of the cluster (required)"
   echo "  --nodepool      Name of the node pool (optional)"
   echo "  --debug         Enable debug mode (optional)"
+  echo "  --active       Show only active nodes (optional)"
+  echo "  --help|-h      Show this help message"
   exit 1
 }
 
@@ -50,6 +52,13 @@ while [[ $# -gt 0 ]]; do
       set -x
       shift # past argument
       ;;
+    --help|-h)
+      usage
+      ;;
+    *) 
+      echo "Unknown option: $1"
+      usage
+      ;;      
   esac
 done
 

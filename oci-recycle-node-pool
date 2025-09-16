@@ -8,7 +8,7 @@ CLUSTERID=""
 NODEPOOL=""
 NODEPOOLID=""
 NODE=""
-ACTIVE=false
+APPLY="echo"
 
 function usage() {
   echo "Usage: $0 --compartment <compartment-name> --cluster <cluster-name> [--nodepool <nodepool-name>] [--debug]"
@@ -18,6 +18,8 @@ function usage() {
   echo "  --cluster       Name of the cluster (required)"
   echo "  --nodepool      Name of the node pool (optional)"
   echo "  --debug         Enable debug mode (optional)"
+  echo "  --yes           Apply changes (optional, default is dry-run)"
+  echo "  --help|-h      Show this help message"
   exit 1
 }
 
@@ -43,14 +45,21 @@ while [[ $# -gt 0 ]]; do
       shift # past argument
       shift # past value
       ;;
-    --node)
-      NODE="$2"
+    --yes)
+      APPLY=""
       shift # past argument
       shift # past value
       ;;
     --debug)
       set -x
       shift # past argument
+      ;;
+    --help|-h)
+      usage
+      ;;
+    *) 
+      echo "Unknown option: $1"
+      usage
       ;;
   esac
 done
@@ -79,7 +88,7 @@ fi
 
 echo "Recycling node pool $NODEPOOL in cluster $CLUSTER in compartment $COMPARTMENT"
 
-OCIUPDATE="oci ce node-pool update --node-pool-id $NODEPOOLID"
+OCIUPDATE="$APPLY oci ce node-pool update --node-pool-id $NODEPOOLID"
 OCIGET="oci ce node-pool get --node-pool-id $NODEPOOLID"
 
 # Extract list of node freeform tags
@@ -88,8 +97,15 @@ NODETAGS=$($OCIGET  --query 'data."node-config-details"."freeform-tags"' --raw-o
 NODETAGS=$(echo "$NODETAGS" | jq --arg ts "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" '.["LastUpdated"] = $ts')
 
 # Update tag and trigger recycle
-$OCIUPDATE --freeform-tags "$NODETAGS" --node-pool-cycling-details '{"isNodeCyclingEnabled":true,"maximumSurge":"10%","maximumUnavailable":"10%"}' --wait-for-state SUCCEEDED
+if [ $APPLY == "echo" ]; then
+  echo "Would update node pool with tags: $NODETAGS"
+else
+  echo "Updating node pool with tags: $NODETAGS"
+fi
+
+
+$OCIUPDATE --node-freeform-tags "$NODETAGS" --node-pool-cycling-details '{"isNodeCyclingEnabled":true,"maximumSurge":"100%","maximumUnavailable":"100%"}' --wait-for-state SUCCEEDED
 
 # disable recycling
-$OCIUPDATE --node-pool-cycling-details '{"isNodeCyclingEnabled":false,"maximumSurge":"10%","maximumUnavailable":"10%"}' --wait-for-state SUCCEEDED
+$OCIUPDATE --node-pool-cycling-details '{"isNodeCyclingEnabled":false,"maximumSurge":"100%","maximumUnavailable":"100%"}' --wait-for-state SUCCEEDED
 
