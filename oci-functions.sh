@@ -34,5 +34,5 @@ function get_nodepool_id() {
   local compartment_id="$1"
   local cluster_id="$2"
   local nodepool_name="$3"
-  oci ce node-pool list --compartment-id "$compartment_id" --cluster-id "$cluster_id" --lifecycle-state "ACTIVE" --query "data[?name=='$nodepool_name'].id | [0]" --raw-output
+  oci ce node-pool list --compartment-id "$compartment_id" --cluster-id "$cluster_id" --lifecycle-state "ACTIVE" --lifecycle-state "UPDATING" --query "data[?name=='$nodepool_name'].id | [0]" --raw-output
 }

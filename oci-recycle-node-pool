@@ -7,6 +7,7 @@ CLUSTER=""
 CLUSTERID=""
 NODEPOOL=""
 NODEPOOLID=""
+NODE=""
 ACTIVE=false
 
 function usage() {
@@ -42,9 +43,10 @@ while [[ $# -gt 0 ]]; do
       shift # past argument
       shift # past value
       ;;
-    --active)
-      ACTIVE=true
+    --node)
+      NODE="$2"
       shift # past argument
+      shift # past value
       ;;
     --debug)
       set -x
@@ -53,6 +55,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# if [! -z "$OCI_COMPARTMENT" ] && [ -z "$COMPARTMENT" ]; then
+#   COMPARTMENT="$OCI_COMPARTMENT"
+# fi
 
 CMPID=$(get_compartment_id "$COMPARTMENT")
 if [ -z "$CMPID" ]; then
@@ -66,43 +71,25 @@ if [ -z "$CLUSTERID" ]; then
   usage
 fi
 
-OCICMD="oci ce node-pool list --compartment-id $CMPID --cluster-id $CLUSTERID"
-
-
-if [ ! -z "$NODEPOOL" ]; then
-  if [ -z "$CLUSTERID" ]; then
-    echo "Cluster name must be specified when specifying a node pool name"
-    usage
-  fi
-  NODEPOOLID=$(get_nodepool_id "$CMPID" "$CLUSTERID" "$NODEPOOL")
-  if [ -z "$NODEPOOLID" ]; then
-    echo "Node Pool $NODEPOOL not found in cluster $CLUSTER"
-    usage
-  fi
-  
-  list_nodes "$NODEPOOLID"
-
+NODEPOOLID=$(get_nodepool_id "$CMPID" "$CLUSTERID" "$NODEPOOL")
+if [ -z "$NODEPOOLID" ]; then
+  echo "Node Pool $NODEPOOL not found in cluster $CLUSTER"
+  usage
 fi
 
-function list_nodes() {
-  local nodepool_id="$1"
-  local nodepool_name="$2"
-  local jqfilter='.[]'
-  if $ACTIVE; then
-    jqfilter+=' | select(."lifecycle-state"=="ACTIVE") '
-  fi
-  jqfilter+=' | [$nodepoolname, ."node-id", ."lifecycle-state", ."private-ip", .id] | @tsv'
-  
-  oci ce node-pool get --node-pool-id "$nodepool_id" --query 'data.nodes' --raw-output | jq --arg nodepoolname "$nodepool_name" -r "$jqfilter" | column -t
-}
+echo "Recycling node pool $NODEPOOL in cluster $CLUSTER in compartment $COMPARTMENT"
 
-if [ ! -z "$NODEPOOLID" ]; then
-  list_nodes "$NODEPOOLID" "$NODEPOOL"
-  exit 0
+OCIUPDATE="oci ce node-pool update --node-pool-id $NODEPOOLID"
+OCIGET="oci ce node-pool get --node-pool-id $NODEPOOLID"
 
-else
-  for nodepool in $($OCICMD | jq -r '.data[] | .name'); do
-    NODEPOOLID=$(get_nodepool_id "$CMPID" "$CLUSTERID" "$nodepool")
-    list_nodes "$NODEPOOLID" "$nodepool"
-  done
-fi
+# Extract list of node freeform tags
+NODETAGS=$($OCIGET  --query 'data."node-config-details"."freeform-tags"' --raw-output )
+# Update LastUpdated to current time stamp
+NODETAGS=$(echo "$NODETAGS" | jq --arg ts "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" '.["LastUpdated"] = $ts')
+
+# Update tag and trigger recycle
+$OCIUPDATE --freeform-tags "$NODETAGS" --node-pool-cycling-details '{"isNodeCyclingEnabled":true,"maximumSurge":"10%","maximumUnavailable":"10%"}' --wait-for-state SUCCEEDED
+
+# disable recycling
+$OCIUPDATE --node-pool-cycling-details '{"isNodeCyclingEnabled":false,"maximumSurge":"10%","maximumUnavailable":"10%"}' --wait-for-state SUCCEEDED
+
