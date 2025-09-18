@@ -8,6 +8,6 @@ if [ ! -d "$HOME/bin" ]; then
   mkdir -p "$HOME/bin"
 fi
 
-for script in *.sh; do
+for script in oci-*; do
   ln -s "$(pwd)/$script" "$HOME/bin/"
 done
