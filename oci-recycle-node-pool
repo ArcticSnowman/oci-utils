@@ -45,10 +45,9 @@ while [[ $# -gt 0 ]]; do
       shift # past argument
       shift # past value
       ;;
-    --yes)
+    --yes|--apply)
       APPLY=""
       shift # past argument
-      shift # past value
       ;;
     --debug)
       set -x
@@ -97,14 +96,14 @@ NODETAGS=$($OCIGET  --query 'data."node-config-details"."freeform-tags"' --raw-o
 NODETAGS=$(echo "$NODETAGS" | jq --arg ts "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" '.["LastUpdated"] = $ts')
 
 # Update tag and trigger recycle
-if [ $APPLY == "echo" ]; then
+if [[ $APPLY == "echo" ]]; then
   echo "Would update node pool with tags: $NODETAGS"
 else
   echo "Updating node pool with tags: $NODETAGS"
 fi
 
 
-$OCIUPDATE --node-freeform-tags "$NODETAGS" --node-pool-cycling-details '{"isNodeCyclingEnabled":true,"maximumSurge":"100%","maximumUnavailable":"100%"}' --wait-for-state SUCCEEDED
+$OCIUPDATE --node-freeform-tags "$NODETAGS" --node-pool-cycling-details '{"isNodeCyclingEnabled":true,"maximumSurge":"100%","maximumUnavailable":"100%","cycleModes": "INSTANCE_REPLACE"}' --wait-for-state SUCCEEDED
 
 # disable recycling
 $OCIUPDATE --node-pool-cycling-details '{"isNodeCyclingEnabled":false,"maximumSurge":"100%","maximumUnavailable":"100%"}' --wait-for-state SUCCEEDED

@@ -5,7 +5,7 @@ A collection of shell scripts for interacting with Oracle Cloud Infrastructure (
 ## Scripts Included
 
 - oci-functions.sh: Common functions used by other scripts.
-- oci-list-ads-images: List available images in OCI.
+- oci-list-custom-images: List available images in OCI.
 - oci-list-compartments: List compartments in your OCI tenancy.
 - oci-list-oke-clusters: List Oracle Kubernetes Engine (OKE) clusters.
 - oci-list-oke-node-pools: List node pools in OKE clusters.
