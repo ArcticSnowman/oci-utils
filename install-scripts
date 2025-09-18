@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+# script installs all scripts in this directory to $HOME/bin
+
+set -euo pipefail
+
+if [ ! -d "$HOME/bin" ]; then
+  mkdir -p "$HOME/bin"
+fi
+
+for script in *.sh; do
+  ln -s "$(pwd)/$script" "$HOME/bin/"
+done

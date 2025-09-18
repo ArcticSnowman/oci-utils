@@ -18,23 +18,34 @@ A collection of shell scripts for interacting with Oracle Cloud Infrastructure (
 - Bash shell
 - OCI CLI installed and configured ([OCI CLI documentation](https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/cliinstall.htm))
 
+
+## Installation
+
+Clone the repository:
+
+```bash
+git clone https://github.com/ArcticSnowman/oci-utils.git
+cd oci-utils
+```
+Install dependencies:
+
+```bash
+sudo apt-get install jq column
+```
+
+Run Installation script:
+
+```bash
+./install.sh
+```
+
 ## Usage
 
-1. Clone this repository:
-   ```bash
-   git clone https://github.com/ArcticSnowman/oci-utils.git
-   cd oci-utils
-   ```
+Each script can be executed directly from the command line. For example:
 
-2. Source the functions (if needed):
-   ```bash
-   source oci-functions.sh
-   ```
-
-3. Run any script:
-   ```bash
-   ./oci-list-compartments
-   ```
+```bash
+oci-list-custom-images
+```
 
 ## License
 
