@@ -103,7 +103,7 @@ else
 fi
 
 
-$OCIUPDATE --node-freeform-tags "$NODETAGS" --node-pool-cycling-details '{"isNodeCyclingEnabled":true,"maximumSurge":"100%","maximumUnavailable":"100%","cycleModes": "INSTANCE_REPLACE"}' --wait-for-state SUCCEEDED
+$OCIUPDATE --node-freeform-tags "$NODETAGS" --node-pool-cycling-details '{"isNodeCyclingEnabled":true,"maximumSurge":"100%","maximumUnavailable":"100%","cycleModes":["INSTANCE_REPLACE"]}' --wait-for-state SUCCEEDED
 
 # disable recycling
 $OCIUPDATE --node-pool-cycling-details '{"isNodeCyclingEnabled":false,"maximumSurge":"100%","maximumUnavailable":"100%"}' --wait-for-state SUCCEEDED

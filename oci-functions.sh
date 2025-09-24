@@ -12,7 +12,7 @@ function get_compartment_id() {
     return ""
   fi
 
-  oci iam compartment list --compartment-id-in-subtree true --all --query "data[?name=='$compartment_name'].id | [0]" --raw-output
+  oci iam compartment list --compartment-id-in-subtree true --include-root --all --query "data[?name=='$compartment_name'].id | [0]" --raw-output
 }
 
 # Get the cluster ID from the cluster name

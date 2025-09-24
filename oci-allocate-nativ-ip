@@ -1,0 +1,165 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SOURCE_COMPARTMENT=""
+DESTINATION_COMPARTMENT=""
+COUNT=1
+OCI="echo oci"
+## Script to select reserved public IP from a source compartment and move it to a destination compartment
+## Tagging the reserved public IP with "UsedFor:NATiv" tag
+
+## Usage function
+usage() {
+    echo "Usage: $0 --source <source_compartmentd> --destination <destination_compartment> [--cidr <cidr_block>] [--apply] [--debug] [--help]"
+    echo ""
+    echo "Options:"
+    echo "  --source       Source compartment to select reserved public IPs from."
+    echo "  --destination  Destination compartment to move the selected reserved public IPs"
+    echo "  --filter       IP Glob  to filter the reserved public IPs."
+    echo "  --count        Number of reserved public IPs to move. Default is 1."
+    echo "  --apply        Apply the changes. If not set, the script will only simulate the actions."
+    echo "  --debug        Enable debug mode."
+    echo "  --help, -h     Display this help message."
+    exit 1
+}
+
+
+# Get the direcory of the current script
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+. "$SCRIPT_DIR/oci-functions.sh"
+
+publicIP=""
+publicIpID=""
+FILTER=""
+publicIPs=()
+
+function grabSourceIPs()
+{
+  publicIPs=($(oci network public-ip list --compartment-id $SOURCE_COMPARTMENT_ID --scope REGION --lifetime RESERVED --all | jq -r '.data | sort_by(."ip-address") | .[] | select(."freeform-tags".UsedFor == "NATiv"| not) | select(."lifecycle-state"=="AVAILABLE") | select(."ip-address" | test("'"$(escape_filter "$FILTER")"'")) | .id ' ))
+
+  if [[ -z "$publicIPs" || ${#publicIPs[@]} -eq 0 ]]; then
+        echo "No Public IPs available"
+        exit -1
+  fi
+}
+
+
+
+# function selectSourceIP()
+# {
+
+#     publicIpID="${publicIPs[0]}"
+ 
+#     echo "Selected Public IP ID: $publicIpID"
+
+#     if [[ -z "$publicIpID" || "$publicIpID" == "" || ${#publicIpID} == 0 ]];
+#     then
+#         echo "No Public IPs available"
+#     else
+#         publicIP=$(oci network public-ip get --public-ip-id $publicIpID --query='data."ip-address"')    
+#     fi
+
+# }
+
+
+function escape_filter() {
+    local input="$1"
+    # Escape special characters for use in jq's test() function
+    echo "$input"  | sed -e 's/\./\\\\\./g' | sed -e 's/\*/\.*/g'
+}
+
+function updateTags() {
+    local resource_id="$1"
+
+    if [ -z "$resource_id" ]; then
+        echo "Resource ID is required to update tags."
+        return 1
+    fi
+
+    echo "Updating freeform tags for resource ID: $resource_id"
+    TAGS=$(oci network public-ip get --public-ip-id "$resource_id" --query 'data."freeform-tags"' --raw-output)
+    TAGS=$(echo "$TAGS" | jq '. + {"UsedFor":"NATiv"}')
+    TAGS=$(echo "$TAGS" | jq '. + {"App":"InfraOPS"}')
+    TAGS=$(echo "$TAGS" | jq '. + {"Service":"NATiv"}')
+    TAGS=$(echo "$TAGS" | jq '. + {"Project":"OPSNetwork"}')
+    $OCI network public-ip update --public-ip-id "$resource_id" --freeform-tags "$TAGS" --force
+    
+
+}
+
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --source)
+      SOURCE_COMPARTMENT="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    --destination)
+      DESTINATION_COMPARTMENT="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    --count)
+      COUNT="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    --apply)
+      OCI="oci"
+      shift # past argument
+      ;;
+    --filter)
+      FILTER="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    --debug)
+      set -x
+      shift # past argument
+      ;;
+    --help|-h)
+      usage
+      ;;
+    *) 
+      echo "Unknown option: $1"
+      usage
+      ;;      
+  esac
+done      
+
+if [[ -z "$SOURCE_COMPARTMENT" || -z "$DESTINATION_COMPARTMENT" ]]; then
+    echo "Both --source and --destination parameters are required."
+    usage
+fi
+
+SOURCE_COMPARTMENT_ID=$(get_compartment_id "$SOURCE_COMPARTMENT")
+DESTINATION_COMPARTMENT_ID=$(get_compartment_id "$DESTINATION_COMPARTMENT")
+
+if [[ -z "$SOURCE_COMPARTMENT_ID" || -z "$DESTINATION_COMPARTMENT_ID" ]]; then
+    echo "Could not retrieve compartment IDs. Please check the compartment names."
+    exit 1
+fi
+
+grabSourceIPs
+
+#loop count times
+for ((i=1; i<=COUNT; i++)); do
+    echo "Selecting Public IP $i of $COUNT from compartment $SOURCE_COMPARTMENT ($SOURCE_COMPARTMENT_ID)"
+    publicIpID=${publicIPs[i-1]}
+    publicIP=$(oci network public-ip get --public-ip-id $publicIpID --query='data."ip-address"')    
+
+    if [[ -z "$publicIpID" || "$publicIpID" == "" || ${#publicIpID} == 0 ]]; then
+        echo "No more Public IPs available to move."
+        exit 0
+    fi
+    echo "Selected Public IP: $publicIP with ID: $publicIpID"
+    echo "Moving Public IP $publicIP ($publicIpID) to compartment $DESTINATION_COMPARTMENT ($DESTINATION_COMPARTMENT_ID)"
+    $OCI network public-ip change-compartment --public-ip-id $publicIpID --compartment-id $DESTINATION_COMPARTMENT_ID 
+
+    echo "Tagging Public IP $publicIP ($publicIpID)"
+    updateTags $publicIpID
+
+done

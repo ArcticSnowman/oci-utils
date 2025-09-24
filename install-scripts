@@ -8,6 +8,14 @@ if [ ! -d "$HOME/bin" ]; then
   mkdir -p "$HOME/bin"
 fi
 
+
+
 for script in oci-*; do
+  if [ ! -x "$script" ]; then
+    chmod +x "$script"
+  fi
+  if [ -L "$HOME/bin/$script" ]; then
+    rm "$HOME/bin/$script"
+  fi
   ln -s "$(pwd)/$script" "$HOME/bin/"
 done
