@@ -89,8 +89,6 @@ if [ ! -z "$NODEPOOL" ]; then
     usage
   fi
   
-  list_nodes "$NODEPOOLID"
-
 fi
 
 function list_nodes() {

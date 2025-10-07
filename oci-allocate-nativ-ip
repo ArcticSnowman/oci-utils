@@ -84,7 +84,7 @@ function updateTags() {
     TAGS=$(echo "$TAGS" | jq '. + {"App":"InfraOPS"}')
     TAGS=$(echo "$TAGS" | jq '. + {"Service":"NATiv"}')
     TAGS=$(echo "$TAGS" | jq '. + {"Project":"OPSNetwork"}')
-    $OCI network public-ip update --public-ip-id "$resource_id" --freeform-tags "$TAGS" --force
+    $OCI network public-ip update --public-ip-id "$resource_id" --freeform-tags "$TAGS" 
     
 
 }

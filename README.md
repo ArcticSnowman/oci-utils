@@ -4,6 +4,7 @@ A collection of shell scripts for interacting with Oracle Cloud Infrastructure (
 
 ## Scripts Included
 
+- install.sh: Script to install the utilities.
 - oci-functions.sh: Common functions used by other scripts.
 - oci-list-custom-images: List available images in OCI.
 - oci-list-compartments: List compartments in your OCI tenancy.
