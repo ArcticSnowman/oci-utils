@@ -12,6 +12,7 @@ A collection of shell scripts for interacting with Oracle Cloud Infrastructure (
 - oci-list-oke-node-pools: List node pools in OKE clusters.
 - oci-list-oke-nodes: List nodes in OKE clusters.
 - oci-list-subnets: List subnets in your OCI tenancy.
+- oci-list-volumes: List block/boot volumes in OCI compartment.
 - oci-recycle-node-pool: Recycle nodes in an OKE node pool.
 
 ## Prerequisites
