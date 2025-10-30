@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+COMPARTMENT=""
+CMPID=""
+SYSTEM=false
+OKE=false
+CUSTOM=true
+
+function usage() {
+  echo "Usage: $0 [--compartment <compartment-name>] [--debug]"
+  echo ""
+  echo "Options:"
+  echo "  --compartment  Name of the compartment (optional, lists all compartments if not provided)"
+  echo "  --system       List System images (optional)"
+  echo "  --oke          List System OKE images (optional)"
+  echo "  --debug        Enable debug mode (optional)"
+  echo "  --help|-h      Show this help message"
+  exit 1
+}
+
+# Get the direcory of the current script
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+. "$SCRIPT_DIR/oci-functions.sh"
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --compartment)
+      COMPARTMENT="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    --system)
+      SYSTEM=true
+      shift # past argument
+      ;;
+    --oke)
+      OKE=true
+      shift # past argument
+      ;;
+    --debug)
+      set -x
+      shift # past argument
+      ;;
+    --help|-h)
+      usage
+      ;;
+    *) 
+      echo "Unknown option: $1"
+      usage
+      ;;      
+  esac
+done
+
+
+if [ "$SYSTEM" == true ] || [ "$OKE" == true ] || [ "$CUSTOM" == true ]; then
+  if [ -z "$COMPARTMENT" ]; then
+    echo "When using --system or --oke, --compartment must be specified"
+    usage
+  fi
+fi
+
+if [ "$SYSTEM" == true ] && [ "$OKE" == true ]; then
+  echo "Cannot use --system and --oke together"
+  usage
+fi
+
+
+
+if [ -n "$COMPARTMENT" ]; then
+  CMPID=$(get_compartment_id "$COMPARTMENT")
+  if [ -z "$CMPID" ]; then
+    echo "Compartment $COMPARTMENT not found"
+    usage
+  fi
+    if [ "$SYSTEM" == true ]; then
+      json=$(oci compute image list --all --compartment-id "$CMPID")
+      echo "$json" | jq --arg cmpname $COMPARTMENT -r '.data[] | select(."compartment-id" == null) | [$cmpname, ."display-name", .id] | @tsv' | column -t 
+    elif [ "$OKE" == true ]; then
+      json=$(oci ce node-pool-options get --node-pool-option-id all)
+      echo "$json" | jq --arg cmpname $COMPARTMENT -r '.data.sources[] | [$cmpname, ."source-name", ."image-id"] | @tsv' | column -tq
+    else 
+      json=$(oci compute image list --all --compartment-id "$CMPID")
+      if [ "$json" != "" ]; then
+        echo "$json" | jq --arg cmpname $COMPARTMENT -r '.data[] | select(."compartment-id" != null) | [$cmpname, ."display-name", .id] | @tsv' | column -t
+      else
+        echo "No custom images found in compartment $COMPARTMENT"
+     fi
+  fi
+  exit 0
+else
+  for cmp in $(oci iam compartment list --compartment-id-in-subtree true --all | jq -r '.data[] | .id'); do
+    json=$(oci compute image list --all --compartment-id "$cmp")
+    cmp_name=$(oci iam compartment get --compartment-id "$cmp" | jq -r '.data.name')
+    if [ "$json" != "" ]; then
+      echo "$json" | jq --arg cmpname $cmp_name -r '.data[] | select(."compartment-id" != null) | [$cmpname, ."display-name", .id] | @tsv' | column -t
+    fi
+  done
+fi

@@ -7,18 +7,22 @@ CLUSTER=""
 CLUSTERID=""
 NODEPOOL=""
 NODEPOOLID=""
+NODEIP=""
+SUMMARY=false
 ACTIVE=false
 
 function usage() {
-  echo "Usage: $0 --compartment <compartment-name> --cluster <cluster-name> [--nodepool <nodepool-name>] [--debug]"
+  echo "Usage: $0 --compartment <compartment-name> --cluster <cluster-name> [--nodepool <nodepool-name>] [--nodeip <node-ip>] [--debug]"
   echo ""
   echo "Options:"
   echo "  --compartment   Name of the compartment (required)"
   echo "  --cluster       Name of the cluster (required)"
   echo "  --nodepool      Name of the node pool (optional)"
+  echo "  --nodeip        IP address of the node (optional)"
+  echo "  --active        Show only active nodes (optional)"
+  # echo "  --summary       Show a summary of the nodes (optional)"
   echo "  --debug         Enable debug mode (optional)"
-  echo "  --active       Show only active nodes (optional)"
-  echo "  --help|-h      Show this help message"
+  echo "  --help|-h       Show this help message"
   exit 1
 }
 
@@ -47,6 +51,15 @@ while [[ $# -gt 0 ]]; do
     --active)
       ACTIVE=true
       shift # past argument
+      ;;
+    # --summary)
+    #   SUMMARY=true
+    #   shift # past argument
+    #   ;;
+    --nodeip)
+      NODEIP="$2"
+      shift # past argument
+      shift # past value
       ;;
     --debug)
       set -x
@@ -91,15 +104,24 @@ if [ ! -z "$NODEPOOL" ]; then
   
 fi
 
+
 function list_nodes() {
   local nodepool_id="$1"
   local nodepool_name="$2"
   local jqfilter='.[]'
+
   if $ACTIVE; then
     jqfilter+=' | select(."lifecycle-state"=="ACTIVE") '
   fi
+
+  if [ ! -z "$NODEIP" ]; then
+    jqfilter+='| select(."private-ip" == "'$NODEIP'") '
+  fi
+
   jqfilter+=' | [$nodepoolname, ."node-id", ."lifecycle-state", ."private-ip", .id] | @tsv'
-  
+
+
+
   oci ce node-pool get --node-pool-id "$nodepool_id" --query 'data.nodes' --raw-output | jq --arg nodepoolname "$nodepool_name" -r "$jqfilter" | column -t
 }
 

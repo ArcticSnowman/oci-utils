@@ -9,11 +9,11 @@ UNATTACHED=false
 DEBUG=false
 
 function usage() {
-  echo "Usage: $0 [--compartment <compartment-name>] [--bootvol] [--unattached] [--debug]"
+  echo "Usage: $0 [--compartment <compartment-name>] [--boot] [--unattached] [--debug]"
   echo ""
   echo "Options:"
   echo "  --compartment   Name of the compartment (required)"
-  echo "  --bootvol       List only boot volumes (optional)"
+  echo "  --boot          List only boot volumes (optional)"
   echo "  --unattached    List only unattached volumes (optional)"
   echo "  --debug         Enable debug mode (optional)"
   echo "  --help|-h       Show this help message"
@@ -101,11 +101,11 @@ for volid in $volidlist; do
         attached="Yes"
     fi
 
-    echo "$voljson" | jq --arg attached "$attached" -r '.data | [.id, ."display-name", ."lifecycle-state", ."size-in-gbs", ."time-created", $attached] | @tsv' 
+    echo "$voljson" | jq --arg attached "$attached" -r '.data | [.id, ."display-name", ."size-in-gbs", ."time-created", $attached] | @tsv' 
 
     if [ "$DEBUG" == "true" ]; then
       break
     fi
-done | column -t -N "ID,Display Name,State,Size(GB),Created,Attached" -s $'\t'
+done | column -t -N "ID,Display Name,Size(GB),Created,Attached" -s $'\t'
 
 
