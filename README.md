@@ -13,7 +13,7 @@ A collection of shell scripts for interacting with Oracle Cloud Infrastructure (
 - oci-list-oke-nodes: List nodes in OKE clusters.
 - oci-list-subnets: List subnets in your OCI tenancy.
 - oci-list-volumes: List block/boot volumes in OCI compartment.
-- oci-recycle-node-pool: Recycle nodes in an OKE node pool.
+- oci-oke-create-kubeconfig: Create kubeconfig file for accessing OKE clusters.
 
 ## Prerequisites
 
@@ -28,13 +28,15 @@ Clone the repository:
 ```bash
 git clone https://github.com/ArcticSnowman/oci-utils.git
 cd oci-utils
+
 ```
+
 Install dependencies:
 
 ```bash
 sudo apt-get install jq column
-```
 
+```
 Run Installation script:
 
 ```bash
