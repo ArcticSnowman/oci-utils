@@ -49,3 +49,17 @@ function get_image_id() {
 
   oci compute image list --compartment-id "$compartment_id" --all | jq -r ".data[] | select(.\"display-name\"==\"$image_name\").id"
 }
+
+
+function get_compartment_name() {
+  local cmpid="$1"
+
+  oci iam compartment get --compartment-id=$cmpid | jq -r '.data.name'
+}
+
+function get_compartment_parent() {
+  local cmpid="$1"
+
+  oci iam compartment get --compartment-id=$cmpid | jq -r '.data."compartment-id"'
+}
+

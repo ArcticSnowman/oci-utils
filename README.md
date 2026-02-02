@@ -14,6 +14,7 @@ A collection of shell scripts for interacting with Oracle Cloud Infrastructure (
 - oci-list-subnets: List subnets in your OCI tenancy.
 - oci-list-volumes: List block/boot volumes in OCI compartment.
 - oci-oke-create-kubeconfig: Create kubeconfig file for accessing OKE clusters.
+- oci-policy-count-summary: Summarize policy counts by compartment.
 
 ## Prerequisites
 
