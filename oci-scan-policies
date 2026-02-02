@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+COMPARTMENT=""
+CMPID=""
+
+function usage() {
+  echo "Usage: $0 --compartment <compartment-name> [--debug]"
+  echo ""
+  echo "Options:"
+  echo "  --compartment   Name of the compartment (optional)"
+  echo "  --debug         Enable debug mode (optional)"
+  echo "  --help|-h       Show this help message"
+  exit 1
+}   
+
+# Get the directory of the current script
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/oci-functions.sh"
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --compartment)
+      COMPARTMENT="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    --debug)
+      DEBUG="true"
+      set -x
+      shift # past argument
+      ;;
+    --help|-h)
+      usage
+      ;;
+    *) 
+      echo "Unknown option: $1"
+      usage
+      ;;
+  esac
+done
+
+
+CMPID=$(get_compartment_id "$COMPARTMENT")
+if [ -z "$CMPID" ]; then
+  echo "Compartment $COMPARTMENT not found"
+  usage
+fi 
+
+# List compartment policy statements
+oci iam policy list --compartment-id="$CMPID" | jq -r '.data[] | .name as $name | .statements[] | [$name, .] | @tsv'
+
+parentid=$(oci iam compartment get --compartment-id=$CMPID | jq -r '.data."compartment-id" // "none"')
+
+while [ "$parentid" != "none" ]; do
+    oci iam policy list --compartment-id="$parentid" | jq -r '.data[] | .name as $name | .statements[] | [$name, .] | @tsv'
+    parentid=$(oci iam compartment get --compartment-id=$parentid | jq -r '.data."compartment-id" // "none"')
+done;
+
