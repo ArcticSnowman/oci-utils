@@ -206,8 +206,9 @@ func genAttachedList(attachments []core.VolumeAttachment) map[string]bool {
 func outputVolumes(volumes []core.Volume, volAttached map[string]bool) {
 	writer := table.NewWriter()
 	writer.SetOutputMirror(os.Stdout)
-	writer.AppendHeader(table.Row{"Name", "Id", "State", "Attached"})
+	writer.AppendHeader(table.Row{"Name", "Id", "Size", "State", "Attached"})
 
+	totalSize := 0
 	for _, volume := range volumes {
 		if viper.GetBool("unattached") && volAttached[*volume.Id] {
 			continue
@@ -217,14 +218,16 @@ func outputVolumes(volumes []core.Volume, volAttached map[string]bool) {
 			continue
 		}
 
+		totalSize += int(*volume.SizeInGBs)
 		if !volAttached[*volume.Id] {
-			writer.AppendRow(table.Row{*volume.DisplayName, *volume.Id, volume.LifecycleState, "No"})
+			writer.AppendRow(table.Row{*volume.DisplayName, *volume.Id, *volume.SizeInGBs, volume.LifecycleState, "No"})
 		} else {
-			writer.AppendRow(table.Row{*volume.DisplayName, *volume.Id, volume.LifecycleState, "Yes"})
+			writer.AppendRow(table.Row{*volume.DisplayName, *volume.Id, *volume.SizeInGBs, volume.LifecycleState, "Yes"})
 		}
 	}
 
 	writer.Render()
+	log.Infof("Total Volumes: %d, Total Size: %d GB", len(volumes), totalSize)
 }
 
 // List Boot Volumes
@@ -264,8 +267,9 @@ func listBootVolumes(compartmentOCID string) ([]core.BootVolume, error) {
 func outputBootVolumes(volumes []core.BootVolume, volAttached map[string]bool) {
 	writer := table.NewWriter()
 	writer.SetOutputMirror(os.Stdout)
-	writer.AppendHeader(table.Row{"Name", "Id", "State", "Attached"})
+	writer.AppendHeader(table.Row{"Name", "Id", "Size", "State", "Attached"})
 
+	totalSize := 0
 	for _, volume := range volumes {
 		if viper.GetBool("unattached") && volAttached[*volume.Id] {
 			continue
@@ -275,12 +279,13 @@ func outputBootVolumes(volumes []core.BootVolume, volAttached map[string]bool) {
 			continue
 		}
 
+		totalSize += int(*volume.SizeInGBs)
 		if !volAttached[*volume.Id] {
-			writer.AppendRow(table.Row{*volume.DisplayName, *volume.Id, volume.LifecycleState, "No"})
+			writer.AppendRow(table.Row{*volume.DisplayName, *volume.Id, *volume.SizeInGBs, volume.LifecycleState, "No"})
 		} else {
-			writer.AppendRow(table.Row{*volume.DisplayName, *volume.Id, volume.LifecycleState, "Yes"})
+			writer.AppendRow(table.Row{*volume.DisplayName, *volume.Id, *volume.SizeInGBs, volume.LifecycleState, "Yes"})
 		}
 	}
-
 	writer.Render()
+	log.Infof("Total Boot Volumes: %d, Total Size: %d GB", len(volumes), totalSize)
 }

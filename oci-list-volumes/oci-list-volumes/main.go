@@ -12,8 +12,9 @@ import (
 // Cobra based CLI tool to list OCI volumes in the current tenancy and region.
 
 var Cmd = &cobra.Command{
-	Use:   "oci-list-volumes",
-	Short: "List OCI volumes in selected compartment for current tenancy and region.",
+	Use:     "oci-list-volumes",
+	Short:   "List OCI volumes in selected compartment for current tenancy and region.",
+	Version: ocilistvolumes.VERSION,
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		log.SetLevel(log.InfoLevel)
