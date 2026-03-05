@@ -1,0 +1,155 @@
+#!/usr/bin/env bash
+
+COMPARTMENT=""
+CMPID=""
+LOGGROUP=""
+LOGGROUPID="" 
+LOG=""
+LOGID=""
+SINCE=""
+UNTIL=""
+STARTTIME=""
+ENDTIME=""
+
+
+# Usage function
+function usage() {
+  echo "Usage: $0 --compartment <compartment-name> --loggroup <log-group-name> --log <log-name> [--since  <start-time>] [--until <end-time>] [--debug]"  
+  echo ""
+  echo "Options:"
+  echo "  --compartment   Name of the compartment (required)"
+  echo "  --loggroup      Name of the log group (required)"
+  echo "  --log           Name of the log (required)"
+  echo "  --since         Start time for the log search (optional)"
+  echo "  --until         End time for the log search (optional)"
+  echo "  --debug         Enable debug mode (optional)"
+  echo "  --help|-h      Show this help message"
+  exit 1
+}
+
+
+# Get the direcory of the current script
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/oci-functions.sh"
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --compartment)
+      COMPARTMENT="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    --loggroup)
+      LOGGROUP="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    --log)
+      LOG="$2"
+      shift # past argument
+      shift # past value
+      ;;      
+    --since)
+      SINCE="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    --until)
+      UNTIL="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    --debug)
+      set -x
+      shift # past argument
+      ;;
+    --help|-h)
+      usage
+      ;;
+    *) 
+      echo "Unknown option: $1"
+      usage
+      ;;      
+  esac
+done
+
+# compartment required for this script
+if [ -z "$COMPARTMENT" ]; then
+   echo "Compartment is required"
+   usage
+fi 
+CMPID=$(get_compartment_id "$COMPARTMENT")
+if [ -z "$CMPID" ]; then
+   echo "Compartment $COMPARTMENT not found"
+   exit 1
+fi
+
+# log group required for this script
+if [ -z "$LOGGROUP" ]; then
+
+  echo "Log group is required"
+  usage
+  
+fi
+LOGGROUPID=$(get_log_group_id "$CMPID" "$LOGGROUP")
+if [ -z "$LOGGROUPID" ]; then
+    echo "Log group $LOGGROUP not found"
+    exit 1
+fi
+
+# log required for this script
+if [ -z "$LOG" ]; then
+
+    echo "Log is required"
+    usage
+    
+fi
+
+LOGID=$(get_log_id "$LOGGROUPID" "$LOG")
+if [ -z "$LOGID" ]; then
+    echo "Log $LOG not found"
+    exit 1
+fi
+
+if [ -n "$SINCE" ]; then
+    STARTTIME=$(date -d "$SINCE" --utc +%Y-%m-%dT%H:%M:%SZ)
+    if [ -z "$STARTTIME" ]; then
+        echo "Invalid start time format. Please use a valid date format."
+        exit 1
+    fi
+else
+    STARTTIME=$(date -d "1 hour ago" --utc +%Y-%m-%dT%H:%M:%SZ)
+fi
+
+if [ -n "$UNTIL" ]; then
+    ENDTIME=$(date -d "$UNTIL" --utc +%Y-%m-%dT%H:%M:%SZ)
+    if [ -z "$ENDTIME" ]; then
+        echo "Invalid end time format. Please use a valid date format."
+        exit 1
+    fi
+else
+    ENDTIME=$(date -d "now" --utc +%Y-%m-%dT%H:%M:%SZ)
+fi
+
+echo "Searching logs in log $LOG (ID: $LOGID) from $STARTTIME to $ENDTIME"
+
+
+SEARCH="search \"$CMPID/$LOGGROUPID/$LOGID\""
+
+
+ 
+json=$(oci logging-search search-logs --search-query "$SEARCH" --time-start "$STARTTIME" --time-end "$ENDTIME")
+page=$(echo "$json" | jq -r '."opc-next-page"')
+
+echo "$json" | jq -r '.data.results[] | .data.logContent.data.errorLog.errorDetails' 
+
+while [ -n "$page" ]; do
+  json=$(oci logging-search search-logs --search-query "$SEARCH" --time-start "$STARTTIME" --time-end "$ENDTIME" --page "$page")
+  page=$(echo "$json" | jq -r '."opc-next-page"')
+  echo "$json" | jq -r '.data.results[] | .data.logContent.data.errorLog.errorDetails' 
+done
+
+#oci logging-search search-logs --search-query 'search "ocid1.compartment.oc1..aaaaaaaax422rwoc3mhv6bfcynereusk7ubfikonadhfekmrg7ciagxa7gcq/ocid1.loggroup.oc1.us-sanjose-1.amaaaaaaxiptryaawnfiwbfbxufppitq7lhub3puwn6a4z5ddfmt6pyqmm6a/ocid1.log.oc1.us-sanjose-1.amaaaaaaxiptryaasj2s5msjnd5zfc36zvrud5qx6haearpmvjz5lw24ddna"' --time-start 2026-03-05T00:00:00Z --time-end 2026-03-05T23:59:59Z 
+
+
+

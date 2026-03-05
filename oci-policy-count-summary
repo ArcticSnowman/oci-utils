@@ -3,11 +3,6 @@ set -euo pipefail
 
 COMPARTMENT=""
 CMPID=""
-CLUSTER=""
-CLUSTERID=""
-KUBECONFIG_FILE="$HOME/.kube/config"
-OVERWRITE="false"
-ALIAS=""
 DEBUG="false"
 
 function usage() {

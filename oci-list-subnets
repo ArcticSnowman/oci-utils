@@ -4,6 +4,7 @@ set -euo pipefail
 
 COMPARTMENT=""
 CMPID=""
+UTILIZATION=false
 
 function usage() {
   echo "Usage: $0 [--compartment <compartment-name>] [--debug]"
@@ -14,6 +15,32 @@ function usage() {
   echo "  --help|-h      Show this help message"
   exit 1
 }
+
+function list_subnet() {
+  local compartment_id="$1"
+
+  json=$(oci network subnet list --compartment-id "$compartment_id")
+  cmp_name=$(oci iam compartment get --compartment-id "$compartment_id" | jq -r '.data.name')
+
+  if [ "$json" != "" ]; then
+    echo "$json" | jq --arg cmpname $cmp_name -r '.data[] | [$cmpname, ."display-name", .id] | @tsv' | column -t
+  else
+    echo "No subnets found in compartment $cmp_name"
+  fi
+  if [ "$UTILIZATION" = true ]; then
+     echo "$json" | jq -r '.data[]' | while read subnet; do
+       subnet_id=$(echo "$subnet" | jq -r '.id')
+       subnet_name=$(echo "$subnet" | jq -r '."display-name"')
+       get_utilization "$subnet_id" "$subnet_name"
+     done
+   fi
+
+
+}
+
+function get_utilization() {
+    echo -e "$2 Utilization: \n $(oci network ipam get-subnet-cidr-utilization --subnet-id $1 | jq -r '.data."ip-inventory-cidr-utilization-summary"[] | [."address-type",.utilization] | @tsv' | column -t)"
+} 
 
 # Get the direcory of the current script
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -29,6 +56,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --debug)
       set -x
+      shift # past argument
+      ;;
+    --utilization|--util)
+      UTILIZATION=true
       shift # past argument
       ;;
     --help|-h)
@@ -48,20 +79,12 @@ if [ -n "$COMPARTMENT" ]; then
     echo "Compartment $COMPARTMENT not found"
     usage
   fi
-  json=$(oci network subnet list --compartment-id "$CMPID")
-  if [ "$json" != "" ]; then
-    echo "$json" | jq --arg cmpname $COMPARTMENT -r '.data[] | [$cmpname, ."display-name", .id] | @tsv' | column -t
-  else
-    echo "No subnets found in compartment $COMPARTMENT"
-  fi
-  exit 0
+  list_subnet "$CMPID"
+
 else
 
   for cmp in $(oci iam compartment list --compartment-id-in-subtree true --all | jq -r '.data[] | .id'); do
-    json=$(oci network subnet list --compartment-id "$cmp")
-    cmp_name=$(oci iam compartment get --compartment-id "$cmp" | jq -r '.data.name')
-    if [ "$json" != "" ]; then
-      echo "$json" | jq --arg cmpname $cmp_name -r '.data[] | [$cmpname, ."display-name", .id] | @tsv' | column -t
-    fi
+    list_subnet "$cmp"
   done
 fi
+

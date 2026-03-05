@@ -63,3 +63,29 @@ function get_compartment_parent() {
   oci iam compartment get --compartment-id=$cmpid | jq -r '.data."compartment-id"'
 }
 
+
+function get_log_group_id() {
+  local cmpid="$1"
+  local loggroup_name="$2"
+
+  if [ -z "$loggroup_name" ]; then
+    printf "Log Group Name is required\n" > /dev/stderr
+    usage > /dev/stderr
+    return ""
+  fi
+
+  oci logging log-group list --compartment-id "$cmpid" --all | jq -r ".data[] | select(.\"display-name\"==\"$loggroup_name\").id"
+}
+
+function get_log_id() {
+  local loggroupid="$1"
+  local log_name="$2"
+
+  if [ -z "$log_name" ]; then
+    printf "Log Name is required\n" > /dev/stderr
+    usage > /dev/stderr
+    return ""
+  fi
+
+  oci logging log list --log-group-id "$loggroupid" --all | jq -r ".data[] | select(.\"display-name\"==\"$log_name\").id"
+} 
