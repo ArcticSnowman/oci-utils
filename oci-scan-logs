@@ -131,7 +131,7 @@ else
     ENDTIME=$(date -d "now" --utc +%Y-%m-%dT%H:%M:%SZ)
 fi
 
-echo "Searching logs in log $LOG (ID: $LOGID) from $STARTTIME to $ENDTIME"
+# echo "Searching logs in log $LOG (ID: $LOGID) from $STARTTIME to $ENDTIME"
 
 
 SEARCH="search \"$CMPID/$LOGGROUPID/$LOGID\""
@@ -148,8 +148,6 @@ while [ -n "$page" ] && [ "$page" !=  "null" ]; do
   page=$(echo "$json" | jq -r '."opc-next-page"')
   echo "$json" | jq -r '.data.results[] | .data.logContent.data.errorLog.errorDetails' 
 done
-
-#oci logging-search search-logs --search-query 'search "ocid1.compartment.oc1..aaaaaaaax422rwoc3mhv6bfcynereusk7ubfikonadhfekmrg7ciagxa7gcq/ocid1.loggroup.oc1.us-sanjose-1.amaaaaaaxiptryaawnfiwbfbxufppitq7lhub3puwn6a4z5ddfmt6pyqmm6a/ocid1.log.oc1.us-sanjose-1.amaaaaaaxiptryaasj2s5msjnd5zfc36zvrud5qx6haearpmvjz5lw24ddna"' --time-start 2026-03-05T00:00:00Z --time-end 2026-03-05T23:59:59Z 
 
 
 

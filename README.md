@@ -6,8 +6,10 @@ A collection of shell scripts for interacting with Oracle Cloud Infrastructure (
 
 - install.sh: Script to install the utilities.
 - oci-functions.sh: Common functions used by other scripts.
-- oci-list-custom-images: List available images in OCI.
+- oci-list-compute-images: List available images in OCI.
 - oci-list-compartments: List compartments in your OCI tenancy.
+- oci-list-log-groups: List log groups in a specified compartment.
+- oci-list-logs: List logs in a specified log group.
 - oci-list-oke-clusters: List Oracle Kubernetes Engine (OKE) clusters.
 - oci-list-oke-node-pools: List node pools in OKE clusters.
 - oci-list-oke-nodes: List nodes in OKE clusters.
@@ -15,7 +17,9 @@ A collection of shell scripts for interacting with Oracle Cloud Infrastructure (
 - oci-list-volumes: List block/boot volumes in OCI compartment.
 - oci-oke-create-kubeconfig: Create kubeconfig file for accessing OKE clusters.
 - oci-policy-count-summary: Summarize policy counts by compartment.
-- oci-scan-policies: List all policies that applt to a given compartment.
+- oci-scan-policies: List all policies that apply to a given compartment.
+- oci-scan-logs: Search and display logs from OCI logging service.
+
 
 ## Prerequisites
 
