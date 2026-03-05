@@ -143,7 +143,7 @@ page=$(echo "$json" | jq -r '."opc-next-page"')
 
 echo "$json" | jq -r '.data.results[] | .data.logContent.data.errorLog.errorDetails' 
 
-while [ -n "$page" ]; do
+while [ -n "$page" ] && [ "$page" !=  "null" ]; do
   json=$(oci logging-search search-logs --search-query "$SEARCH" --time-start "$STARTTIME" --time-end "$ENDTIME" --page "$page")
   page=$(echo "$json" | jq -r '."opc-next-page"')
   echo "$json" | jq -r '.data.results[] | .data.logContent.data.errorLog.errorDetails' 
