@@ -1,5 +1,55 @@
 #!/usr/bin/env bash
 
+# Usage function
+function usage() {
+  echo "Usage: $0 [--profile <profile_name>] [--include-root] [--debug]"
+  echo ""
+  echo "Options:"
+  echo "  --profile      Specify the OCI profile to use (optional)"
+  echo "  --include-root  Include the root compartment in the list (optional)"
+  echo "  --debug        Enable debug mode (optional)"
+  echo "  --help|-h      Show this help message"
+  exit 1
+}
+
+PROFILE="DEFAULT"
+
+# Get the directory of the current script
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+. "$SCRIPT_DIR/oci-functions.sh"
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --debug)
+      set -x
+      shift # past argument
+      ;;
+    --help|-h)
+      usage
+      ;;
+    --profile)
+      PROFILE="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    --include-root)
+      INCLUDE_ROOT=true
+      shift # past argument
+      ;;
+    *) 
+      echo "Unknown option: $1"
+      usage
+      ;;
+  esac
+done
+
 # This script lists all OCI compartments in a given tenancy. Parse JSON output to list table of name and id
 
-oci iam compartment list --compartment-id-in-subtree true --all --include-root| jq -r '.data[] | [.name, .id] | @tsv' | column -t
+CMD="oci iam compartment list --compartment-id-in-subtree true --all"
+if [[ "$INCLUDE_ROOT" == true ]]; then
+  CMD="$CMD --include-root"
+fi
+CMD="$CMD --profile \"$PROFILE\""
+
+eval $CMD | jq -r '.data[] | [.name, .id] | @tsv' | column -t
