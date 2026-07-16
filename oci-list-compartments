@@ -13,6 +13,7 @@ function usage() {
 }
 
 PROFILE="DEFAULT"
+INCLUDE_ROOT=false
 
 # Get the directory of the current script
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -46,10 +47,9 @@ done
 
 # This script lists all OCI compartments in a given tenancy. Parse JSON output to list table of name and id
 
-CMD="oci iam compartment list --compartment-id-in-subtree true --all"
+CMD="iam compartment list --compartment-id-in-subtree true --all"
 if [[ "$INCLUDE_ROOT" == true ]]; then
   CMD="$CMD --include-root"
 fi
-CMD="$CMD --profile \"$PROFILE\""
 
-eval $CMD | jq -r '.data[] | [.name, .id] | @tsv' | column -t
+runoci "$CMD" $PROFILE | jq -r '.data[] | [.name, .id] | @tsv' | column -t
