@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+
+COMPARTMENT=""
+CMPID=""
+PROFILE="DEFAULT"
+
+# Usage function
+function usage() {
+  echo "Usage: $0 --compartment <compartment-name> [--profile <profile_name>] [--tree] [--debug]"
+  echo ""
+  echo "Options:"
+  echo "  --compartment  Name of the compartment (required)"
+  echo "  --tree         Display buckets in a tree structure (optional)"
+  echo "  --profile      Specify the OCI profile to use (optional)"
+  echo "  --debug        Enable debug mode (optional)"
+  echo "  --help|-h      Show this help message"
+  exit 1
+}
+
+
+# Get the direcory of the current script
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+. "$SCRIPT_DIR/oci-functions.sh"
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --debug)
+      set -x
+      shift # past argument
+      ;;
+    --help|-h)
+      usage
+      ;;
+    --profile)
+      PROFILE="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    --compartment)
+      COMPARTMENT="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    --tree)
+      TREE=true
+      shift # past argument
+      ;;
+    *) 
+      echo "Unknown option: $1"
+      usage
+      ;;
+  esac
+done
+
+if [ ! -z "$COMPARTMENT" ]; then
+  CMPID=$(get_compartment_id "$COMPARTMENT" "$PROFILE")
+  if [ -z "$CMPID" ]; then
+    echo "Compartment $COMPARTMENT not found"
+    exit 1
+  fi
+else
+  echo "Compartment name is required"
+  usage
+fi
+
+
+# This script lists all OCI buckets in a given compartment. Parse JSON output to list table of name and id
+
+oci os bucket list --compartment-id "$CMPID" --profile "$PROFILE" | jq -r '.data[] | [.name, .id] | @tsv' | column -t

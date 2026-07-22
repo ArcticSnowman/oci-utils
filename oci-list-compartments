@@ -47,9 +47,9 @@ done
 
 # This script lists all OCI compartments in a given tenancy. Parse JSON output to list table of name and id
 
-CMD="iam compartment list --compartment-id-in-subtree true --all"
+CMD="iam compartment list --compartment-id-in-subtree true --all --profile $PROFILE"
 if [[ "$INCLUDE_ROOT" == true ]]; then
   CMD="$CMD --include-root"
 fi
 
-runoci "$CMD" $PROFILE | jq -r '.data[] | [.name, .id] | @tsv' | column -t
+oci $CMD | jq -r '.data[] | [.name, .id] | @tsv' | column -t

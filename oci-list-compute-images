@@ -7,6 +7,7 @@ CMPID=""
 SYSTEM=false
 OKE=false
 CUSTOM=true
+PROFILE="DEFAULT"
 
 function usage() {
   echo "Usage: $0 [--compartment <compartment-name>] [--debug]"
@@ -15,6 +16,7 @@ function usage() {
   echo "  --compartment  Name of the compartment (optional, lists all compartments if not provided)"
   echo "  --system       List System images (optional)"
   echo "  --oke          List System OKE images (optional)"
+  echo "  --profile      Specify the OCI profile to use (optional)"
   echo "  --debug        Enable debug mode (optional)"
   echo "  --help|-h      Show this help message"
   exit 1
@@ -44,6 +46,11 @@ while [[ $# -gt 0 ]]; do
       set -x
       shift # past argument
       ;;
+    --profile)
+      PROFILE="$2"
+      shift # past argument
+      shift # past value
+      ;;
     --help|-h)
       usage
       ;;
@@ -70,19 +77,19 @@ fi
 
 
 if [ -n "$COMPARTMENT" ]; then
-  CMPID=$(get_compartment_id "$COMPARTMENT")
+  CMPID=$(get_compartment_id "$COMPARTMENT" "$PROFILE")
   if [ -z "$CMPID" ]; then
     echo "Compartment $COMPARTMENT not found"
     usage
   fi
     if [ "$SYSTEM" == true ]; then
-      json=$(oci compute image list --all --compartment-id "$CMPID")
+      json=$(oci compute image list --all --compartment-id "$CMPID" --profile "$PROFILE")
       echo "$json" | jq --arg cmpname $COMPARTMENT -r '.data[] | select(."compartment-id" == null) | [$cmpname, ."display-name", .id] | @tsv' | column -t 
     elif [ "$OKE" == true ]; then
-      json=$(oci ce node-pool-options get --node-pool-option-id all)
-      echo "$json" | jq --arg cmpname $COMPARTMENT -r '.data.sources[] | [$cmpname, ."source-name", ."image-id"] | @tsv' | column -tq
+      json=$(oci ce node-pool-options get --node-pool-option-id all --compartment-id "$CMPID" --profile "$PROFILE")
+      echo "$json" | jq --arg cmpname $COMPARTMENT -r '.data.sources[] | [$cmpname, ."source-name", ."image-id"] | @tsv' | column -t
     else 
-      json=$(oci compute image list --all --compartment-id "$CMPID")
+      json=$(oci compute image list --all --compartment-id "$CMPID" --profile "$PROFILE")
       if [ "$json" != "" ]; then
         echo "$json" | jq --arg cmpname $COMPARTMENT -r '.data[] | select(."compartment-id" != null) | [$cmpname, ."display-name", .id] | @tsv' | column -t
       else
@@ -91,9 +98,9 @@ if [ -n "$COMPARTMENT" ]; then
   fi
   exit 0
 else
-  for cmp in $(oci iam compartment list --compartment-id-in-subtree true --all | jq -r '.data[] | .id'); do
-    json=$(oci compute image list --all --compartment-id "$cmp")
-    cmp_name=$(oci iam compartment get --compartment-id "$cmp" | jq -r '.data.name')
+  for cmp in $(oci iam compartment list --compartment-id-in-subtree true --all --profile "$PROFILE" | jq -r '.data[] | .id'); do
+    json=$(oci compute image list --all --compartment-id "$cmp" --profile "$PROFILE")
+    cmp_name=$(oci iam compartment get --compartment-id "$cmp" --profile "$PROFILE" | jq -r '.data.name')
     if [ "$json" != "" ]; then
       echo "$json" | jq --arg cmpname $cmp_name -r '.data[] | select(."compartment-id" != null) | [$cmpname, ."display-name", .id] | @tsv' | column -t
     fi

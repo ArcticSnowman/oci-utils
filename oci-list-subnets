@@ -7,10 +7,11 @@ CMPID=""
 UTILIZATION=false
 
 function usage() {
-  echo "Usage: $0 [--compartment <compartment-name>] [--debug]"
+  echo "Usage: $0 [--compartment <compartment-name>] [--profile <profile_name>] [--debug]"
   echo ""
   echo "Options:"
   echo "  --compartment   Name of the compartment (optional, lists all compartments if not provided)"
+  echo "  --profile       Specify the OCI profile to use (optional)"
   echo "  --debug         Enable debug mode (optional)"
   echo "  --help|-h      Show this help message"
   exit 1
@@ -19,16 +20,16 @@ function usage() {
 function list_subnet() {
   local compartment_id="$1"
 
-  json=$(oci network subnet list --compartment-id "$compartment_id")
-  cmp_name=$(oci iam compartment get --compartment-id "$compartment_id" | jq -r '.data.name')
+  json=$(oci network subnet list --compartment-id "$compartment_id" --profile "$PROFILE" --all )
+  cmp_name=$(oci iam compartment get --compartment-id "$compartment_id" --profile "$PROFILE" | jq -r '.data.name')
 
   if [ "$json" != "" ]; then
-    echo "$json" | jq --arg cmpname $cmp_name -r '.data[] | [$cmpname, ."display-name", .id] | @tsv' | column -t
+    echo "$json" | jq --arg cmpname "$cmp_name" -r '.data[] | [$cmpname, ."vcn-id", ."display-name", .id] | @tsv' | column -t
   else
     echo "No subnets found in compartment $cmp_name"
   fi
   if [ "$UTILIZATION" = true ]; then
-     echo "$json" | jq -r '.data[]' | while read subnet; do
+     echo "$json" | jq -r -c '.data[]' | while read subnet; do
        subnet_id=$(echo "$subnet" | jq -r '.id')
        subnet_name=$(echo "$subnet" | jq -r '."display-name"')
        get_utilization "$subnet_id" "$subnet_name"
@@ -39,13 +40,15 @@ function list_subnet() {
 }
 
 function get_utilization() {
-    echo -e "$2 Utilization: \n $(oci network ipam get-subnet-cidr-utilization --subnet-id $1 | jq -r '.data."ip-inventory-cidr-utilization-summary"[] | [."address-type",.utilization] | @tsv' | column -t)"
+    echo -e "$2 Utilization: \n $(oci network ipam get-subnet-cidr-utilization --subnet-id $1 --profile "$PROFILE" --output json | jq -r '.data."ip-inventory-cidr-utilization-summary"[] | [."address-type",.utilization] | @tsv' | column -t)"
 } 
 
 # Get the direcory of the current script
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 . "$SCRIPT_DIR/oci-functions.sh"
+
+PROFILE="DEFAULT"
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -61,6 +64,11 @@ while [[ $# -gt 0 ]]; do
     --utilization|--util)
       UTILIZATION=true
       shift # past argument
+      ;; 
+    --profile)
+      PROFILE="$2"
+      shift # past argument
+      shift # past value
       ;;
     --help|-h)
       usage
@@ -74,7 +82,7 @@ done
 
 
 if [ -n "$COMPARTMENT" ]; then
-  CMPID=$(get_compartment_id "$COMPARTMENT")
+  CMPID=$(get_compartment_id "$COMPARTMENT" "$PROFILE")
   if [ -z "$CMPID" ]; then
     echo "Compartment $COMPARTMENT not found"
     usage
@@ -83,7 +91,7 @@ if [ -n "$COMPARTMENT" ]; then
 
 else
 
-  for cmp in $(oci iam compartment list --compartment-id-in-subtree true --all | jq -r '.data[] | .id'); do
+  for cmp in $(runoci "iam compartment list --compartment-id-in-subtree true --all" $PROFILE | jq -r '.data[] | .id'); do
     list_subnet "$cmp"
   done
 fi

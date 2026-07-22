@@ -6,7 +6,8 @@ A collection of shell scripts for interacting with Oracle Cloud Infrastructure (
 
 - install.sh: Script to install the utilities.
 - oci-functions.sh: Common functions used by other scripts.
-- oci-list-compute-images: List available images in OCI.
+- oci-list-buckets: List buckets in a specified compartment.
+- oci-list-compute-images: List available compute images in OCI.
 - oci-list-compartments: List compartments in your OCI tenancy.
 - oci-list-log-groups: List log groups in a specified compartment.
 - oci-list-logs: List logs in a specified log group.
@@ -19,6 +20,7 @@ A collection of shell scripts for interacting with Oracle Cloud Infrastructure (
 - oci-policy-count-summary: Summarize policy counts by compartment.
 - oci-scan-policies: List all policies that apply to a given compartment.
 - oci-scan-logs: Search and display logs from OCI logging service.
+- oci-transfer-custom-images: Transfer custom images between compartments.
 
 
 ## Prerequisites
@@ -54,7 +56,7 @@ Run Installation script:
 Each script can be executed directly from the command line. For example:
 
 ```bash
-oci-list-custom-images
+oci-list-compute-images
 ```
 
 ## License
