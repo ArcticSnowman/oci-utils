@@ -6,5 +6,5 @@
 package ocilistvolumes
 
 //go:generate /usr/bin/perl version.pl
-const VERSION = "20260210.192533#9cae581"
-const DAEMON  = `oci-list-volumes main Build 20260210.192533#9cae581`
+const VERSION = "20260722.144631#c591cb5"
+const DAEMON  = `oci-list-volumes main Build 20260722.144631#c591cb5`
