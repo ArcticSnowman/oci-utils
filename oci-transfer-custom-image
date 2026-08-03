@@ -7,19 +7,21 @@ DESTINATION_COMPARTMENT=""
 IMAGE=""
 OCI="echo oci"
 DRYRUN="true"
-PROFILE="DEFAULT"
+SRCPROFILE="DEFAULT"
+DESTPROFILE="DEFAULT"
 
 # Usage function to display help
 usage() {
-    echo "Usage: $0 --source <source-compartment-name> --destination <destination-compartment-name> --image <image-name> --bucket <uri> [--profile <profile-name>] [--apply] [--debug]"
+    echo "Usage: $0 --source <source-compartment-name> [--src-profile <source-profile-name>] --destination <destination-compartment-name> [--dest-profile <destination-profile-name>] --image <image-name> --bucket <uri> [--apply] [--debug]"
     echo ""
     echo "Options:"
     echo "  --source        Name of the source compartment (required)"
+    echo "  --src-profile   Profile name for the source compartment (optional, default is DEFAULT)"
     echo "  --destination   Name of the destination compartment (required)"
+    echo "  --dest-profile  Profile name for the destination compartment (optional, default is DEFAULT)"
     echo "  --image         Name of the custom image to transfer (required)"
     echo "  --bucket        URI of the bucket to use (required)"
     echo "  --apply         Apply the changes (optional, default is dry-run)"
-    echo "  --profile       Profile name to use (optional, default is DEFAULT)"
     echo "  --debug         Enable debug mode (optional)"
     echo "  --help, -h      Show this help message"
     exit 1
@@ -28,7 +30,7 @@ usage() {
 # Get the directory of the current script
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-. "$SCRIPT_DIR/oci-functions.sh"
+    . "$SCRIPT_DIR/oci-functions.sh"
 
 
 
@@ -51,6 +53,16 @@ while [[ $# -gt 0 ]]; do
       ;;
     --profile)
       PROFILE="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    --src-profile)
+      SRCPROFILE="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    --dest-profile)
+      DESTPROFILE="$2"
       shift # past argument
       shift # past value
       ;;
@@ -89,17 +101,17 @@ if [[ -z "$BUCKET" ]]; then
     usage
 fi
 
-SOURCE_COMPARTMENT_ID=$(get_compartment_id "$SOURCE_COMPARTMENT" "$PROFILE")
+SOURCE_COMPARTMENT_ID=$(get_compartment_id "$SOURCE_COMPARTMENT" "$SRCPROFILE")
 if [[ -z "$SOURCE_COMPARTMENT_ID" ]]; then
     echo "Could not retrieve source compartment ID. Please check the compartment name."
     exit 1
 fi
-DESTINATION_COMPARTMENT_ID=$(get_compartment_id "$DESTINATION_COMPARTMENT" "$PROFILE")
+DESTINATION_COMPARTMENT_ID=$(get_compartment_id "$DESTINATION_COMPARTMENT" "$DESTPROFILE")
 if [[ -z "$DESTINATION_COMPARTMENT_ID" ]]; then
     echo "Could not retrieve destination compartment ID. Please check the compartment name."
     exit 1
 fi
-IMAGE_ID=$(get_image_id "$IMAGE" "$SOURCE_COMPARTMENT_ID" "$PROFILE")
+IMAGE_ID=$(get_image_id "$IMAGE" "$SOURCE_COMPARTMENT_ID" "$SRCPROFILE")
 if [[ -z "$IMAGE_ID" ]]; then
     echo "Could not retrieve image ID. Please check the image name."
     exit 1
@@ -110,7 +122,7 @@ bucketuri="${BUCKET}${SOURCE_COMPARTMENT}/${IMAGE}.oci"
 echo "Transferring image $IMAGE (ID: $IMAGE_ID) from compartment $SOURCE_COMPARTMENT to $DESTINATION_COMPARTMENT"
 
 echo "Exporting image to bucket"
-ociexport=$($OCI compute image export to-object-uri --image-id "$IMAGE_ID" --uri "$bucketuri" --profile "$PROFILE")
+ociexport=$($OCI compute image export to-object-uri --image-id "$IMAGE_ID" --uri "$bucketuri" --profile "$SRCPROFILE")
 
 if [ $? -ne 0 ]; then
     echo "Image export failed"
@@ -126,7 +138,7 @@ fi
 percent=0
 while [ "$percent" != "100" ]; do
     sleep 30
-    workrequest=$($OCI work-requests work-request get --work-request-id "$workrequestid" --profile "$PROFILE")
+    workrequest=$($OCI work-requests work-request get --work-request-id "$workrequestid" --profile "$SRCPROFILE")
     if [ "$DRYRUN" == "true" ]; then
         echo "Dry run - skipping wait for work request $workrequestid"
         break
@@ -147,7 +159,7 @@ done
 
 ## Import Image
 echo "Importing image from bucket to compartment $DESTINATION_COMPARTMENT"
-ociimport=$($OCI compute image import from-object-uri --compartment-id "$DESTINATION_COMPARTMENT_ID" --display-name "$IMAGE" --uri "$bucketuri" --profile "$PROFILE")
+ociimport=$($OCI compute image import from-object-uri --compartment-id "$DESTINATION_COMPARTMENT_ID" --display-name "$IMAGE" --uri "$bucketuri" --profile "$DESTPROFILE")
 
 if [ $? -ne 0 ]; then
     echo "Image import failed"
@@ -156,17 +168,17 @@ fi
 
 ##Track Progress
 if [ "$DRYRUN" == "true" ]; then
-    workrequestid="DRY-RUN"
+    workrequestid2="DRY-RUN"
 else    
-    workrequestid=$(echo "$ociexport" | jq -r '."opc-work-request-id"')
+    workrequestid2=$(echo "$ociimport" | jq -r '."opc-work-request-id"')
 fi
 
 percent=0
 while [ "$percent" != "100" ]; do
     sleep 30
-    workrequest=$($OCI work-requests work-request get --work-request-id "$workrequestid" --profile "$PROFILE")
+    workrequest=$($OCI work-requests work-request get --work-request-id "$workrequestid2" --profile "$DESTPROFILE")
     if [ "$DRYRUN" == "true" ]; then
-        echo "Dry run - skipping wait for work request $workrequestid"
+        echo "Dry run - skipping wait for work request $workrequestid2"
         break
     fi
     percent=$(echo "$workrequest" | jq -r '.data."percent-complete"')

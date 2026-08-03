@@ -2,13 +2,15 @@
 
 COMPARTMENT=""
 CMPID=""
+PROFILE="DEFAULT"
 
 # Usage function
 function usage() {
-  echo "Usage: $0 [--compartment <compartment-name>] [--debug]"
+  echo "Usage: $0 [--compartment <compartment-name>] [--profile <profile>] [--debug]"
   echo ""
   echo "Options:"
   echo "  --compartment   Name of the compartment (optional)"
+  echo "  --profile       OCI CLI profile to use (optional)"
   echo "  --debug         Enable debug mode (optional)"
   echo "  --help|-h      Show this help message"
   exit 1
@@ -27,6 +29,11 @@ while [[ $# -gt 0 ]]; do
       shift # past argument
       shift # past value
       ;;
+    --profile)
+      PROFILE="$2"
+      shift # past argument
+      shift # past value
+      ;;
     --debug)
       set -x
       shift # past argument
@@ -42,18 +49,27 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [ ! -z "$COMPARTMENT" ]; then
-  CMPID=$(get_compartment_id "$COMPARTMENT")
+  CMPID=$(get_compartment_id "$COMPARTMENT" "$PROFILE")
   if [ -z "$CMPID" ]; then
     echo "Compartment $COMPARTMENT not found"
     exit 1
   fi
 fi
 
-
-for cmp in $(oci iam compartment list --compartment-id-in-subtree true --all | jq -r '.data[] | .id'); do
-  json=$(oci ce cluster list --compartment-id "$cmp")
-  cmp_name=$(oci iam compartment get --compartment-id "$cmp" | jq -r '.data.name')
+if [ -z "$CMPID" ]; then
+  for cmp in $(oci iam compartment list --compartment-id-in-subtree true --all --profile "$PROFILE" | jq -r '.data[] | .id'); do
+    json=$(oci ce cluster list --compartment-id "$cmp" --profile "$PROFILE")
+    cmp_name=$(oci iam compartment get --compartment-id "$cmp" --profile "$PROFILE" | jq -r '.data.name')
+    if [ "$json" != "" ]; then
+      echo "$json" | jq --arg cmpname "$cmp_name" -r '.data[] | [$cmpname, .name, ."lifecycle-state", .id] | @tsv' | column -t
+    fi
+  done
+else
+  json=$(oci ce cluster list --compartment-id "$CMPID" --profile "$PROFILE")
+  cmp_name=$(oci iam compartment get --compartment-id "$CMPID" --profile "$PROFILE" | jq -r '.data.name')
   if [ "$json" != "" ]; then
-    echo "$json" | jq --arg cmpname $cmp_name -r '.data[] | [$cmpname, .name, ."lifecycle-state", .id] | @tsv' | column -t
+    echo "$json" | jq --arg cmpname "$cmp_name" -r '.data[] | [$cmpname, .name, ."lifecycle-state", .id] | @tsv' | column -t
+  else
+    echo "No clusters found in compartment $COMPARTMENT"
   fi
-done
+fi

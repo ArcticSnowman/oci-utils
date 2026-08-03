@@ -3,12 +3,14 @@ set -euo pipefail
 
 COMPARTMENT=""
 CMPID=""
+PROFILE="DEFAULT"
 
 function usage() {
-  echo "Usage: $0 --compartment <compartment-name> [--debug]"
+  echo "Usage: $0 --compartment <compartment-name> [--profile <profile-name>] [--debug]"
   echo ""
   echo "Options:"
   echo "  --compartment   Name of the compartment (optional)"
+  echo "  --profile       OCI CLI profile to use (optional)"
   echo "  --debug         Enable debug mode (optional)"
   echo "  --help|-h       Show this help message"
   exit 1
@@ -22,6 +24,11 @@ while [[ $# -gt 0 ]]; do
   case $1 in
     --compartment)
       COMPARTMENT="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    --profile)
+      PROFILE="$2"
       shift # past argument
       shift # past value
       ;;
@@ -41,19 +48,19 @@ while [[ $# -gt 0 ]]; do
 done
 
 
-CMPID=$(get_compartment_id "$COMPARTMENT")
+CMPID=$(get_compartment_id "$COMPARTMENT" "$PROFILE")
 if [ -z "$CMPID" ]; then
   echo "Compartment $COMPARTMENT not found"
   usage
 fi 
 
 # List compartment policy statements
-oci iam policy list --compartment-id="$CMPID" | jq -r '.data[] | .name as $name | .statements[] | [$name, .] | @tsv'
+oci iam policy list --compartment-id="$CMPID" --profile "$PROFILE" | jq -r '.data[] | .name as $name | .statements[] | [$name, .] | @tsv'
 
-parentid=$(oci iam compartment get --compartment-id=$CMPID | jq -r '.data."compartment-id" // "none"')
+parentid=$(oci iam compartment get --compartment-id=$CMPID --profile "$PROFILE" | jq -r '.data."compartment-id" // "none"')
 
 while [ "$parentid" != "none" ]; do
-    oci iam policy list --compartment-id="$parentid" | jq -r '.data[] | .name as $name | .statements[] | [$name, .] | @tsv'
-    parentid=$(oci iam compartment get --compartment-id=$parentid | jq -r '.data."compartment-id" // "none"')
+    oci iam policy list --compartment-id="$parentid" --profile "$PROFILE" | jq -r '.data[] | .name as $name | .statements[] | [$name, .] | @tsv'
+    parentid=$(oci iam compartment get --compartment-id=$parentid --profile "$PROFILE" | jq -r '.data."compartment-id" // "none"')
 done;
 

@@ -28,7 +28,7 @@ function get_cluster_id() {
     return ""
   fi
 
-  runoci "ce cluster list --compartment-id \"$compartment_id\" --lifecycle-state \"ACTIVE\" --query \"data[?name=='$cluster_name'].id | [0]\" --raw-output" "$profile"
+  oci ce cluster list --compartment-id "$compartment_id" --lifecycle-state "ACTIVE" --query "data[?name=='$cluster_name'].id | [0]" --raw-output --profile "$profile"
 }
 
 # Get the node pool ID from the node pool name
@@ -37,7 +37,7 @@ function get_nodepool_id() {
   local cluster_id="$2"
   local nodepool_name="$3"
   local profile="$4"
-  runoci "ce node-pool list --compartment-id \"$compartment_id\" --cluster-id \"$cluster_id\" --lifecycle-state \"ACTIVE\" --lifecycle-state \"UPDATING\" --query \"data[?name=='$nodepool_name'].id | [0]\" --raw-output" "$profile"
+  oci ce node-pool list --compartment-id "$compartment_id" --cluster-id "$cluster_id" --lifecycle-state "ACTIVE" --lifecycle-state "UPDATING" --query "data[?name=='$nodepool_name'].id | [0]" --raw-output --profile "$profile"
 }
 
 function get_image_id() {
@@ -51,7 +51,7 @@ function get_image_id() {
     return ""
   fi
 
-  oci compute image list --compartment-id "$compartment_id" --all --profile "$profile" | jq -r ".data[] | select(.\"display-name\"==\"$image_name\").id"
+  oci compute image list --compartment-id "$compartment_id" --all --profile "$profile" | jq -r ".data | map(select(.\"display-name\"==\"$image_name\"))| first | .id"
 }
 
 

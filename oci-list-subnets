@@ -91,7 +91,7 @@ if [ -n "$COMPARTMENT" ]; then
 
 else
 
-  for cmp in $(runoci "iam compartment list --compartment-id-in-subtree true --all" $PROFILE | jq -r '.data[] | .id'); do
+  for cmp in $(oci iam compartment list --compartment-id-in-subtree true --all --profile "$PROFILE" | jq -r '.data[] | .id'); do
     list_subnet "$cmp"
   done
 fi
