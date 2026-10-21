@@ -47,11 +47,6 @@ func (r Report) String() string {
 	}
 }
 
-func (r Report) GetData() {
-
-	r.GetOCIData()
-}
-
 func (r Report) DisplayAvailability() {
 	t := table.NewWriter()
 

@@ -26,19 +26,25 @@ var ociCapReport = cobra.Command{
 		log.Debugf("Shape: %s", viper.GetString("shape"))
 		log.Debugf("OCPU: %d", viper.GetInt("ocpu"))
 		log.Debugf("Memory: %d", viper.GetInt("memory"))
-		log.Debugf("NodeClass: %s", viper.GetString("nodeclass"))
+		log.Debugf("NodePool: %s", viper.GetString("nodepool"))
 		log.Debugf("Profile: %s", viper.GetString("profile"))
 		log.Debugf("Availability Domain: %s", viper.GetString("availabilitydomain"))
 
 		// Require Shape, OCPU and Memory, or NodeClass to be specified
-		if viper.GetString("nodeclass") == "" && (viper.GetString("shape") == "" || viper.GetInt("ocpu") == 0 || viper.GetInt("memory") == 0) {
-			log.Error("Either NodeClass must be specified or Shape, OCPU and Memory must all be specified.")
+		if viper.GetString("nodepool") == "" && (viper.GetString("shape") == "" || viper.GetInt("ocpu") == 0 || viper.GetInt("memory") == 0) {
+			log.Error("Either NodePool must be specified or Shape, OCPU and Memory must all be specified.")
 			cmd.Usage()
 			return
 		}
 
-		if viper.GetString("nodeclass") != "" {
-			shape := ocireport.GetNodePoolShape(viper.GetString("nodeclass"))
+		if viper.GetString("nodepool") != "" {
+			shape := ocireport.GetNodePoolShape(viper.GetString("nodepool"))
+			if shape.Shape == "" || shape.OCPU == 0 || shape.Memory == 0 {
+				log.Error("Failed to retrieve shape details for the specified node pool.")
+				cmd.Usage()
+				return
+			}
+
 			viper.Set("shape", shape.Shape)
 			viper.Set("ocpu", shape.OCPU)
 			viper.Set("memory", shape.Memory)
@@ -48,12 +54,12 @@ var ociCapReport = cobra.Command{
 			viper.GetString("shape"),
 			viper.GetInt("ocpu"),
 			viper.GetInt("memory"),
-			viper.GetString("nodeclass"),
+			viper.GetString("nodepool"),
 			viper.GetString("profile"),
 			viper.GetString("availabilitydomain"),
 		)
 
-		report.GetData()
+		report.GetOCIData()
 
 		report.DisplayAvailability()
 
@@ -75,8 +81,8 @@ func init() {
 	viper.BindPFlag("memory", ociCapReport.Flags().Lookup("memory"))
 
 	// NodeClass
-	ociCapReport.Flags().String("nodeclass", "", "OCI compute node class to filter by")
-	viper.BindPFlag("nodeclass", ociCapReport.Flags().Lookup("nodeclass"))
+	ociCapReport.Flags().String("nodepool", "", "Karpenter node pool to use")
+	viper.BindPFlag("nodepool", ociCapReport.Flags().Lookup("nodepool"))
 
 	// Availability Domain
 	ociCapReport.Flags().String("availabilitydomain", "", "OCI availability domain to filter by")

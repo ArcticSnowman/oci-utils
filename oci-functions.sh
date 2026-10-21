@@ -97,6 +97,17 @@ function get_log_id() {
 } 
 
 
+function generate_ssh_key() {
+  local key_name="temp_ssh_key_$$"
+  local tmpdir=$(mktemp -d)
+  local private_key_path="$tmpdir/${key_name}"
+  local public_key_path="${private_key_path}.pub"
+
+  ssh-keygen -t rsa -b 2048 -f "$private_key_path" -N "" -q
+  echo "$private_key_path"
+}
+
+
 # function runoci(){
 #   local cmd="$1"
 #   local profile="$2"

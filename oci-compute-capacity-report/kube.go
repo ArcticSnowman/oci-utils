@@ -17,12 +17,15 @@ type OCIShape struct {
 
 func GetNodePoolShape(nodePoolName string) OCIShape {
 	// Implementation to retrieve the shape of the node pool
+
+	log.Infof("Get shape details for node pool %s", nodePoolName)
+
 	var shape OCIShape
 	//kubectl get nodepools aok-ads-sfx -o json | jq '.spec.template.spec.requirements[] | select(.key=="oci.oraclecloud.com/instance-shape")| .values[]'
 	cmd := exec.Command("kubectl", "get", "nodepools", nodePoolName, "-o", "json")
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		// Handle error
+		log.Errorf("Failed to get node pool shape: %v", err)
 		return shape
 	}
 
@@ -37,7 +40,7 @@ func GetNodePoolShape(nodePoolName string) OCIShape {
 	cmd = exec.Command("kubectl", "get", "ocinodeclass", nodePoolName, "-o", "json")
 	output, err = cmd.Output()
 	if err != nil {
-		// Handle error
+		log.Errorf("Failed to get OCI node class shape: %v", err)
 		return shape
 	}
 

@@ -19,3 +19,13 @@ for script in oci-*; do
   fi
   ln -s "$(pwd)/$script" "$HOME/bin/"
 done
+
+for script in oci-*/bin/* ; do
+  if [ ! -x "$script" ]; then
+    chmod +x "$script"
+  fi
+  if [ -L "$HOME/bin/$script" ]; then
+    rm "$HOME/bin/$script"
+  fi
+  ln -s "$(pwd)/$script" "$HOME/bin/"
+done

@@ -1,0 +1,147 @@
+#!/bin/env bash
+
+set -euo pipefail
+
+trap finish EXIT
+trap finish SIGINT
+trap finish SIGTERM
+
+COMPARTMENT=""
+CMPID=""
+PROFILE="DEFAULT"
+TARGET=""
+USER="opc"
+keypath=""
+SESSION_ID=""
+
+
+# Usage function
+function usage() {
+  echo "Usage: $0 --compartment <compartment-name> [--profile <profile_name>] --target <target-name|ip> [--user <user-name>]"
+  echo ""
+  echo "Options:"
+  echo "  --compartment  Name of the compartment (required)"
+  echo "  --target       Target name or IP address (required)"
+  echo "  --user         User name for the connection (default: opc) (optional)"   
+  echo "  --profile      Specify the OCI profile to use (default: DEFAULT) (optional)"
+  echo "  --debug        Enable debug mode (optional)"
+  echo "  --help|-h      Show this help message"
+  exit 1
+}
+
+function finish() {
+    if [[ -n "$keypath" ]]; then
+        rm -f "$keypath" "$keypath.pub"
+    fi
+    if [[ -n "$SESSION_ID" ]]; then
+        oci bastion session delete --session-id "$SESSION_ID" --profile "$PROFILE" --force
+    fi  
+}
+
+
+
+# Get the direcory of the current script
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+. "$SCRIPT_DIR/oci-functions.sh"
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --debug)
+      set -x
+      shift # past argument
+      ;;
+    --help|-h)
+      usage
+      ;;
+    --profile)
+      PROFILE="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    --compartment)
+      COMPARTMENT="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    --target)
+      TARGET="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    --user)
+      USER="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    *) 
+      echo "Unknown option: $1"
+      usage
+      ;;
+  esac
+done
+
+if [[ -z "$COMPARTMENT" ]]; then
+  echo "Error: --compartment is required"
+  usage
+fi
+
+if [[ -z "$TARGET" ]]; then
+  echo "Error: --target is required"
+  usage
+fi
+
+CMPID=$(get_compartment_id "$COMPARTMENT" "$PROFILE")
+if [[ -z "$CMPID" ]]; then
+  echo "Error: Compartment '$COMPARTMENT' not found"
+  exit 1
+fi
+
+
+BASTION_ID=$(oci bastion bastion list --compartment-id "$CMPID" --profile "$PROFILE" --all | jq -r ".data[0].id")
+
+if [[ -z "$BASTION_ID" ]]; then
+  echo "Error: No bastion found in compartment '$COMPARTMENT'"
+  exit 1
+fi
+
+# Get the target instance ID based on the display name
+TARGET_ID=$(oci compute instance list --profile "$PROFILE" --compartment-id "$CMPID" --all | jq -r ".data[] | select(.\"display-name\"==\"$TARGET\").id")
+if [[ -z "$TARGET_ID" ]]; then
+  echo "Error: Target '$TARGET' not found in compartment '$COMPARTMENT'"
+  exit 1
+fi
+TARGET_IP=$(oci compute instance list-vnics --profile "$PROFILE" --instance-id "$TARGET_ID" | jq -r '.data[0]."private-ip"')
+
+echo "Creating SSH session for user '$USER' on target '$TARGET' ($TARGET_IP) through bastion '$BASTION_ID'"
+keypath=$(generate_ssh_key)
+
+# echo "Bastion ID: $BASTION_ID"
+# echo "Target ID: $TARGET_ID"
+# echo "User: $USER"  
+# echo "Target IP: $TARGET_IP"
+# echo "Temporary SSH key path: $keypath"
+# echo "Temporary SSH public key path: ${keypath}.pub"
+DATE=$(date +%Y%m%d%H%M%S)
+
+session_data=$(oci bastion session create-managed-ssh --bastion-id "$BASTION_ID" --ssh-public-key-file "${keypath}.pub" --target-os-username "$USER" --target-resource-id "$TARGET_ID" --display-name "${USER}_${TARGET}_${DATE}" --profile "$PROFILE")
+
+SESSION_ID=$(jq -r '.data.id' <<< "$session_data")
+
+#wait for session to be active
+echo "Waiting for session to become active..."
+while true; do
+    status=$(oci bastion session get --session-id "$SESSION_ID" --profile "$PROFILE" | jq -r '.data."lifecycle-state"')
+    if [[ "$status" == "ACTIVE" ]]; then
+        break
+    elif [[ "$status" == "FAILED" || "$status" == "CANCELED" ]]; then
+        echo "Error: Session failed to become active"
+        exit 1
+    fi
+    sleep 5
+done
+
+echo "Session is active. Connecting via SSH..."
+ssh -i "$keypath" -o ProxyCommand="ssh -i \"$keypath\" -W %h:%p -p 22 $SESSION_ID@host.bastion.us-ashburn-1.oci.oraclecloud.com" -p 22 "$USER@$TARGET_IP"
+
+exit 0;

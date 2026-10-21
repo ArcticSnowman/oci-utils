@@ -6,5 +6,5 @@
 package ocicomputecapacityreport
 
 //go:generate /usr/bin/perl version.pl
-const VERSION = "20260827.183920#cb11e4c"
-const DAEMON  = `oci-compute-capacity-report main Build 20260827.183920#cb11e4c`
+const VERSION = "20261021.212438#0999b57"
+const DAEMON  = `oci-compute-capacity-report main Build 20261021.212438#0999b57`
