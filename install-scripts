@@ -4,16 +4,36 @@
 
 set -euo pipefail
 
+# Ensure $HOME/bin exists and is in PATH
 if [ ! -d "$HOME/bin" ]; then
   mkdir -p "$HOME/bin"
 fi
 
 
 
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --debug)
+      set -x
+      shift # past argument
+      ;;
+    *) 
+      echo "Unknown option: $1"
+      usage
+      ;;
+  esac
+done
+
+
 for script in oci-*; do
   if [ ! -x "$script" ]; then
     chmod +x "$script"
   fi
+  #Skip directories
+  if [ -d "$script" ]; then
+    continue
+  fi
+  #Remove existing symlink if it exists
   if [ -L "$HOME/bin/$script" ]; then
     rm "$HOME/bin/$script"
   fi
@@ -21,11 +41,13 @@ for script in oci-*; do
 done
 
 for script in oci-*/bin/* ; do
+  #Remove oci-*/bin from script path
+  script_name=$(basename "$script")
   if [ ! -x "$script" ]; then
     chmod +x "$script"
   fi
-  if [ -L "$HOME/bin/$script" ]; then
-    rm "$HOME/bin/$script"
+  if [ -L "$HOME/bin/$script_name" ]; then
+    rm "$HOME/bin/$script_name"
   fi
-  ln -s "$(pwd)/$script" "$HOME/bin/"
+  ln -s "$(pwd)/$script" "$HOME/bin/$script_name"
 done

@@ -1,0 +1,1 @@
+oci-compute-capacity-report/bin/oci-compute-capacity-report filter=lfs diff=lfs merge=lfs -text
