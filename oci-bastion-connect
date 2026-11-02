@@ -13,6 +13,7 @@ TARGET=""
 USER="opc"
 keypath=""
 SESSION_ID=""
+DEBUG=0
 
 
 # Usage function
@@ -30,12 +31,14 @@ function usage() {
 }
 
 function finish() {
-    if [[ -n "$keypath" ]]; then
-        rm -f "$keypath" "$keypath.pub"
+    if [[ $DEBUG -eq 0 ]]; then
+      if [[ -n "$keypath" ]]; then
+          rm -f "$keypath" "$keypath.pub"
+      fi
+      if  [[ -n "$SESSION_ID" ]]; then
+          oci bastion session delete --session-id "$SESSION_ID" --profile "$PROFILE" --force
+      fi  
     fi
-    if [[ -n "$SESSION_ID" ]]; then
-        oci bastion session delete --session-id "$SESSION_ID" --profile "$PROFILE" --force
-    fi  
 }
 
 
@@ -48,6 +51,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 while [[ $# -gt 0 ]]; do
   case $1 in
     --debug)
+      DEBUG=1
       set -x
       shift # past argument
       ;;
@@ -123,13 +127,14 @@ keypath=$(generate_ssh_key)
 # echo "Temporary SSH key path: $keypath"
 # echo "Temporary SSH public key path: ${keypath}.pub"
 DATE=$(date +%Y%m%d%H%M%S)
+MYIP=$(curl -s ifconfig.me)
 
 session_data=$(oci bastion session create-managed-ssh --bastion-id "$BASTION_ID" --ssh-public-key-file "${keypath}.pub" --target-os-username "$USER" --target-resource-id "$TARGET_ID" --display-name "${USER}_${TARGET}_${DATE}" --profile "$PROFILE")
 
 SESSION_ID=$(jq -r '.data.id' <<< "$session_data")
 
 #wait for session to be active
-echo "Waiting for session to become active..."
+echo -n "Waiting for session to become active."
 while true; do
     status=$(oci bastion session get --session-id "$SESSION_ID" --profile "$PROFILE" | jq -r '.data."lifecycle-state"')
     if [[ "$status" == "ACTIVE" ]]; then
@@ -138,8 +143,10 @@ while true; do
         echo "Error: Session failed to become active"
         exit 1
     fi
+    echo -n "."
     sleep 5
 done
+echo " "
 
 echo "Session is active. Connecting via SSH..."
 ssh -i "$keypath" -o ProxyCommand="ssh -i \"$keypath\" -W %h:%p -p 22 $SESSION_ID@host.bastion.us-ashburn-1.oci.oraclecloud.com" -p 22 "$USER@$TARGET_IP"
