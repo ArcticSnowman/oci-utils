@@ -6,5 +6,5 @@
 package ocicomputereservationreport
 
 //go:generate /usr/bin/perl version.pl
-const VERSION = "20261106.202640#cbd1b19"
-const DAEMON  = `oci-compute-reservation-report main Build 20261106.202640#cbd1b19`
+const VERSION = "20261106.203517#bc902b0"
+const DAEMON  = `oci-compute-reservation-report main Build 20261106.203517#bc902b0`
