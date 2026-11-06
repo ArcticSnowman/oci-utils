@@ -158,6 +158,7 @@ func (r Report) GetOCIData() {
 					ShapeAvailabilities: []core.CreateCapacityReportShapeAvailabilityDetails{ShapeAvailability},
 				},
 			}
+			log.Debugf("Submitting Request: %v", request)
 
 			resp, err := client.CreateComputeCapacityReport(context.Background(), request)
 			if err != nil {
@@ -166,7 +167,13 @@ func (r Report) GetOCIData() {
 			}
 
 			report := resp.ComputeCapacityReport
-			log.Debugf("Availability: %d ", *report.ShapeAvailabilities[0].AvailableCount)
+			log.Debugf("Received Response: %v", report)
+			if len(report.ShapeAvailabilities) == 0 {
+				log.Errorf("No shape availabilities returned in the response")
+				return
+			}
+
+			log.Debugf("Availability: %v ", report.ShapeAvailabilities[0])
 			r.SetAvailability(ad, fd, *report.ShapeAvailabilities[0].AvailableCount)
 
 		}
